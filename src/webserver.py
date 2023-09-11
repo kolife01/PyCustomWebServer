@@ -1,3 +1,4 @@
+import os
 import socket
 from datetime import datetime
 
@@ -6,6 +7,12 @@ class WebServer:
     """
     Class representing a TCP server for communication.
     """
+
+    # directory containing this file
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    # directory containing static files
+    STATIC_ROOT = os.path.join(BASE_DIR, "static")
+
     def serve(self):
         """
         Start the server.
@@ -34,8 +41,21 @@ class WebServer:
             with open("server_recv.txt", "wb") as f:
                 f.write(request)
 
+            # parse request
+            request_line, remain = request.split(b"\r\n", maxsplit=1)
+            request_header, request_body = remain.split(b"\r\n\r\n", maxsplit=1)
+
+            # parse request line
+            method, path, http_version = request_line.decode().split(" ")
+
             # generate response body
-            response_body = "<html><body><h1>It works!</h1></body></html>"
+            relative_path = path.lstrip("/")
+            # path to static file
+            static_file_path = os.path.join(self.STATIC_ROOT, relative_path)
+
+            # generate response body
+            with open(static_file_path, "rb") as f:
+                response_body = f.read()
 
             # generate response line
             response_line = "HTTP/1.1 200 OK\r\n"
@@ -44,12 +64,12 @@ class WebServer:
             response_header = ""
             response_header += f"Date: {datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')}\r\n"
             response_header += "Host: HenaServer/0.1\r\n"
-            response_header += f"Content-Length: {len(response_body.encode())}\r\n"
+            response_header += f"Content-Length: {len(response_body)}\r\n"
             response_header += "Connection: Close\r\n"
             response_header += "Content-Type: text/html\r\n"
 
             # generate response
-            response = (response_line + response_header + "\r\n" + response_body).encode()
+            response = (response_line + response_header + "\r\n").encode() + response_body
 
             # Send the response to the client
             client_socket.send(response)
